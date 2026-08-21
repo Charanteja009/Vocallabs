@@ -1,8 +1,161 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sakshi — evidence before payment</title><link rel="stylesheet" href="/static/style.css"></head>
-<body><main><nav><b>साक्षी <span>SAKSHI</span></b><small>Evidence before payment</small></nav>
-<section class="hero"><p class="eyebrow">MULTIMODAL RECONCILIATION FOR SITE SUPERVISORS</p><h1>When the challan and voice note disagree, <em>don't guess.</em></h1><p>Sakshi compares visual delivery proof with Hindi/Hinglish site reports. A deterministic safety policy keeps payment on hold when evidence is unclear or conflicts.</p></section>
-<section class="grid"><form id="form"><div class="card"><label>1 · Delivery challan <input id="image" name="image" accept="image/*" type="file" required><span>Photograph or scan · max 12 MB</span></label></div><div class="card"><label>2 · Foreman's voice note <input id="audio" name="audio" accept="audio/*" type="file"><span>Optional: Groq Whisper transcribes Hindi/Hinglish voice notes.</span></label><label class="or">Or paste a transcript <textarea id="transcript" name="transcript" placeholder="e.g. Aaj 55 cement bags aaye, 5 bags geele hain. Payment rok do."></textarea><span>Reliable fallback for a noisy live demo.</span></label></div><button id="submit" type="submit">Compare evidence <span>→</span></button></form><aside class="card how"><p class="eyebrow">POWERED BY GROQ</p><h2>AI extracts. A human decides.</h2><ol><li>Vision extracts visible challan facts.</li><li>Whisper transcribes the site report.</li><li>AI identifies differences between sources.</li><li>Deterministic rules hold payment on conflict or uncertainty.</li></ol><button id="evaluate" class="secondary" type="button">Run 20-case safety evaluation</button><p id="evaluation" class="offline">The demo target is zero unsafe approvals.</p></aside></section>
-<section id="loading" hidden class="loading">Reading evidence <span></span> checking claims <span></span> preparing review</section><section id="result" hidden></section>
-</main><script src="/static/app.js"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sakshi — evidence before payment</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- LOGIN PAGE                               -->
+  <!-- ════════════════════════════════════════ -->
+  <div id="login-page" class="auth-page" style="display:none;">
+    <div class="auth-brand">
+      <div class="auth-logo">साक्षी</div>
+      <h1 class="auth-wordmark">SAKSHI</h1>
+      <p class="auth-tagline">Safe · Auditable · Multimodal Delivery Verification</p>
+    </div>
+    <div class="auth-card">
+      <h2 class="auth-heading">Welcome back</h2>
+      <p class="auth-subheading">Sign in to your auditor account</p>
+      <form id="login-form" class="auth-form">
+        <div class="field">
+          <label for="login-email">Email</label>
+          <input id="login-email" type="email" required autocomplete="email" placeholder="you@company.com">
+        </div>
+        <div class="field">
+          <label for="login-password">Password</label>
+          <input id="login-password" type="password" required autocomplete="current-password" placeholder="••••••••">
+        </div>
+        <p id="login-error" class="auth-error"></p>
+        <button id="login-submit-btn" type="submit" class="auth-btn">Sign In <span>→</span></button>
+      </form>
+      <div class="auth-footer">
+        <span>Don't have an account?</span>
+        <a id="go-to-signup" class="auth-link">Create one</a>
+      </div>
+      <div class="auth-jwt-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        Secured with JWT · HS256
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- SIGNUP PAGE                              -->
+  <!-- ════════════════════════════════════════ -->
+  <div id="signup-page" class="auth-page" style="display:none;">
+    <div class="auth-brand">
+      <div class="auth-logo">साक्षी</div>
+      <h1 class="auth-wordmark">SAKSHI</h1>
+      <p class="auth-tagline">Create an auditor profile to begin reconciliations</p>
+    </div>
+    <div class="auth-card">
+      <h2 class="auth-heading">Create account</h2>
+      <p class="auth-subheading">Set up your credentials to start auditing</p>
+      <form id="signup-form" class="auth-form">
+        <div class="field">
+          <label for="signup-username">Full Name</label>
+          <input id="signup-username" type="text" required autocomplete="name" placeholder="Ravi Kumar">
+        </div>
+        <div class="field">
+          <label for="signup-email">Email</label>
+          <input id="signup-email" type="email" required autocomplete="email" placeholder="ravi@company.com">
+        </div>
+        <div class="field">
+          <label for="signup-password">Password</label>
+          <input id="signup-password" type="password" required autocomplete="new-password" placeholder="min 4 characters">
+        </div>
+        <p id="signup-error" class="auth-error"></p>
+        <button id="signup-submit-btn" type="submit" class="auth-btn">Create Account <span>→</span></button>
+      </form>
+      <div class="auth-footer">
+        <span>Already have an account?</span>
+        <a id="go-to-login" class="auth-link">Sign in</a>
+      </div>
+      <div class="auth-jwt-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        Passwords hashed with bcrypt
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- MAIN DASHBOARD                           -->
+  <!-- ════════════════════════════════════════ -->
+  <div id="dashboard-page" style="display:none;">
+    <main>
+      <nav>
+        <b>साक्षी <span>SAKSHI</span></b>
+        <div id="user-nav" style="display:flex; align-items:center; gap:8px;">
+          <span id="nav-username" class="nav-user-pill"></span>
+          <button id="nav-new-btn" class="secondary active" type="button">New Comparison</button>
+          <button id="nav-history-btn" class="secondary" type="button">History Log</button>
+          <button id="nav-logout-btn" class="secondary" type="button">Log Out</button>
+        </div>
+      </nav>
+      
+      <!-- Tab 1: New Comparison -->
+      <div id="comparison-tab">
+        <section class="hero">
+          <p class="eyebrow">MULTIMODAL RECONCILIATION FOR SITE SUPERVISORS</p>
+          <h1>When the challan and voice note disagree, <em>don't guess.</em></h1>
+          <p>Sakshi compares visual delivery proof with Hindi/Hinglish site reports. A deterministic safety policy keeps payment on hold when evidence is unclear or conflicts.</p>
+        </section>
+        
+        <section class="grid">
+          <form id="form">
+            <div class="card">
+              <label>1 · Delivery challan 
+                <input id="image" name="image" accept="image/*" type="file" required>
+                <span>Photograph or scan · max 12 MB</span>
+              </label>
+            </div>
+            <div class="card">
+              <label>2 · Foreman's voice note 
+                <input id="audio" name="audio" accept="audio/*" type="file">
+                <span>Optional: Groq Whisper transcribes Hindi/Hinglish voice notes.</span>
+              </label>
+              <label class="or">Or paste a transcript 
+                <textarea id="transcript" name="transcript" placeholder="e.g. Aaj 55 cement bags aaye, 5 bags geele hain. Payment rok do."></textarea>
+                <span>Reliable fallback for a noisy live demo.</span>
+              </label>
+            </div>
+            <button id="submit" type="submit">Compare evidence <span>→</span></button>
+          </form>
+          
+          <aside class="card how">
+            <p class="eyebrow">POWERED BY GROQ</p>
+            <h2>AI extracts. A human decides.</h2>
+            <ol>
+              <li>Vision extracts visible challan facts.</li>
+              <li>Whisper transcribes the site report.</li>
+              <li>AI identifies differences between sources.</li>
+              <li>Deterministic rules hold payment on conflict or uncertainty.</li>
+            </ol>
+            <button id="evaluate" class="secondary" type="button">Run 20-case safety evaluation</button>
+            <p id="evaluation" class="offline">The demo target is zero unsafe approvals.</p>
+          </aside>
+        </section>
+        
+        <section id="loading" hidden class="loading">Reading evidence <span></span> checking claims <span></span> preparing review</section>
+        <section id="result" hidden></section>
+      </div>
+      
+      <!-- Tab 2: History -->
+      <div id="history-tab" style="display:none;">
+        <section class="hero" style="padding: 40px 0 25px;">
+          <p class="eyebrow">AUDIT TRAIL & PREVIOUS RECONCILIATIONS</p>
+          <h1>Audit History</h1>
+          <p>Review past challan checks, transcription logs, and verification results stored in your database.</p>
+        </section>
+        <div id="history-list" class="history-grid"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

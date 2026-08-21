@@ -86,9 +86,20 @@ def rule_based_question(conflicts: list[dict], missing: list[str]) -> str:
     return "Ask the site supervisor to review the source evidence before taking any payment action."
 
 
+def is_material_conflict(c: dict) -> bool:
+    """Filter out non-material pseudo-conflicts where quantities match and no damage/mismatch is present."""
+    why = str(c.get("why") or "").lower()
+    field = str(c.get("field") or "").lower()
+    if any(w in why or w in field for w in ("detail", "specification", "diameter", "breakdown", "sub-type", "formatting")):
+        if not any(w in why for w in ("shortage", "different", "mismatch", "less", "more", "wrong", "damage", "wet", "broken")):
+            return False
+    return True
+
 def safe_result(document: dict, transcript: str, model_result: dict) -> dict:
     """Apply non-negotiable application rules to model-proposed conflicts."""
-    conflicts = [c for c in (model_result.get("conflicts") or []) if isinstance(c, dict)]
+    raw_conflicts = [c for c in (model_result.get("conflicts") or []) if isinstance(c, dict)]
+    conflicts = [c for c in raw_conflicts if is_material_conflict(c)]
+    
     missing = list(model_result.get("missing_information") or [])
     for item in document.get("items") or []:
         if item.get("quantity") is None:
@@ -99,8 +110,24 @@ def safe_result(document: dict, transcript: str, model_result: dict) -> dict:
             missing.append(f"Clear reading of {item.get('name') or 'delivery item'}")
     missing.extend(document.get("unknowns") or [])
     missing = list(dict.fromkeys(str(x) for x in missing if str(x).strip()))
+    
+    # Filter critical missing information that blocks payment
+    critical_missing = []
+    for m in missing:
+        m_lower = m.lower()
+        if "amount confirmation is missing" in m_lower:
+            critical_missing.append(m)
+        elif any(word in m_lower for word in ("supplier", "date", "amount", "currency", "brand", "header", "specification", "diameter", "breakdown", "po number", "vehicle number", "stamp", "signature")):
+            continue
+        elif any(phrase in m_lower for phrase in ("no missing", "no conflict", "none", "n/a", "no issues", "not stated")):
+            continue
+        elif "condition" in m_lower and not any(w in m_lower for w in ("damage", "wet", "broken", "torn", "defect", "leak", "spill", "shortage")):
+            continue
+        else:
+            critical_missing.append(m)
+            
     score = evidence_score(document, transcript, conflicts)
-    can_proceed = not conflicts and not missing and score["level"] == "HIGH"
+    can_proceed = not conflicts and not critical_missing and score["level"] == "HIGH"
     return {
         "decision": "RECOMMEND_PROCEED" if can_proceed else "HOLD_FOR_REVIEW",
         "decision_basis": "deterministic_safety_policy",
@@ -108,7 +135,7 @@ def safe_result(document: dict, transcript: str, model_result: dict) -> dict:
         "conflicts": conflicts,
         "agreements": model_result.get("agreements") or [],
         "missing_information": missing,
-        "review_question": rule_based_question(conflicts, missing),
+        "review_question": rule_based_question(conflicts, critical_missing),
         "reasoning_summary": "Evidence is consistent and complete enough for a human to consider payment." if can_proceed else "Payment must remain on hold because evidence conflicts, is incomplete, or is not sufficiently readable.",
         "provenance": document_provenance(document) + [voice_provenance(transcript)],
     }

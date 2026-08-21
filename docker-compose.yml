@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: sakshi-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: sakshi
+      POSTGRES_PASSWORD: sakshipass
+      POSTGRES_DB: sakshiddb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sakshi -d sakshiddb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  auth:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    container_name: sakshi-auth
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql://sakshi:sakshipass@db:5432/sakshiddb
+      JWT_SECRET: supersecretkeyforsakshiauth1234567890
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8002
+
+  reconcile:
+    build:
+      context: .
+      dockerfile: services/reconcile/Dockerfile
+    container_name: sakshi-reconcile
+    ports:
+      - "8003:8003"
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY}
+    volumes:
+      - media_volume:/app/media
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8003
+
+  history:
+    build:
+      context: .
+      dockerfile: services/history/Dockerfile
+    container_name: sakshi-history
+    ports:
+      - "8004:8004"
+    environment:
+      DATABASE_URL: postgresql://sakshi:sakshipass@db:5432/sakshiddb
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - media_volume:/app/media
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8004
+
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    container_name: sakshi-gateway
+    ports:
+      - "8001:8001"
+    environment:
+      AUTH_SERVICE_URL: http://auth:8002
+      RECONCILE_SERVICE_URL: http://reconcile:8003
+      HISTORY_SERVICE_URL: http://history:8004
+    volumes:
+      - media_volume:/app/media
+    depends_on:
+      - auth
+      - reconcile
+      - history
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8001
+
+volumes:
+  postgres_data:
+  media_volume:

@@ -1,0 +1,13 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.db
+*.db
+.env
+api_res.json
+translate_res.json
+debug_out.json
+reconcile_debug.json
