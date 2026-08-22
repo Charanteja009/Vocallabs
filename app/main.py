@@ -214,17 +214,62 @@ class TranslateRequest(BaseModel):
     target_language: str
 
 def groq_json(url: str, payload: dict) -> dict:
-    key = os.getenv("GROQ_API_KEY")
-    if not key:
-        raise HTTPException(503, "GROQ_API_KEY is missing")
-    req = request.Request(url, data=json.dumps(payload).encode(), headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": "Sakshi-Hackathon/2.0"}, method="POST")
-    try:
-        with request.urlopen(req, timeout=50) as response:
-            return json.loads(response.read())
-    except error.HTTPError as exc:
-        raise HTTPException(502, f"Model request failed: {exc.read().decode(errors='replace')[:300]}") from exc
-    except error.URLError as exc:
-        raise HTTPException(503, f"Model network unavailable: {exc.reason}") from exc
+    primary_key = os.getenv("GROQ_API_KEY")
+    secondary_key = os.getenv("GROQ_API_KEY_SECONDARY")
+    local_ai_url = os.getenv("LOCAL_AI_BASE_URL")  # e.g., http://127.0.0.1:11434/v1/chat/completions
+
+    keys_to_try = []
+    if primary_key:
+        keys_to_try.append(("Groq Primary", primary_key, url))
+    if secondary_key:
+        keys_to_try.append(("Groq Secondary", secondary_key, url))
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    if openrouter_key:
+        keys_to_try.append(("OpenRouter Free Cloud", openrouter_key, "https://openrouter.ai/api/v1/chat/completions"))
+
+    last_error = None
+    for name, key, target_url in keys_to_try:
+        req = request.Request(
+            target_url,
+            data=json.dumps(payload).encode(),
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+                "User-Agent": "Sakshi-Hackathon/2.0"
+            },
+            method="POST"
+        )
+        try:
+            with request.urlopen(req, timeout=50) as response:
+                return json.loads(response.read())
+        except error.HTTPError as exc:
+            last_error = f"{name} failed ({exc.code}): {exc.read().decode(errors='replace')[:200]}"
+            print(f"Warning: {last_error}, attempting failover...")
+            continue
+        except error.URLError as exc:
+            last_error = f"{name} network unavailable: {exc.reason}"
+            print(f"Warning: {last_error}, attempting failover...")
+            continue
+
+    if local_ai_url:
+        print("Failover: Attempting local AI endpoint:", local_ai_url)
+        local_payload = {**payload, "model": os.getenv("LOCAL_AI_MODEL", "llama3.2-vision")}
+        req = request.Request(
+            local_ai_url,
+            data=json.dumps(local_payload).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        try:
+            with request.urlopen(req, timeout=60) as response:
+                return json.loads(response.read())
+        except Exception as exc:
+            last_error = f"Local AI failover failed: {exc}"
+
+    if not keys_to_try and not local_ai_url:
+        raise HTTPException(503, "GROQ_API_KEY is missing and no local AI failover configured.")
+
+    raise HTTPException(502, f"Model request failed: {last_error}")
 
 def content(response: dict) -> str:
     try:
