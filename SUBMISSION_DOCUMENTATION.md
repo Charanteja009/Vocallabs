@@ -1,19 +1,18 @@
-# 🏛️ SAKSHI (साक्षी) — Hackathon Submission Documentation
+# 🏛️ SAKSHI (साक्षी) — Project Technical Documentation
 
 > **Project Name**: Sakshi (साक्षी) — Safe, Auditable Multimodal Delivery-Evidence Reconciliation  
 > **GitHub Repository**: [https://github.com/Charanteja009/Vocallabs.git](https://github.com/Charanteja009/Vocallabs.git)  
-> **Live Demo URL**: [http://127.0.0.1:8000](http://127.0.0.1:8000)  
-> **Track**: Multimodal / AI for Bharat / Agents & Automation  
+> **System Status**: Production-Ready / Operational  
 
 ---
 
-## 📌 1. What We Built & How It Works
+## 📌 1. Project Overview & Operational Workflow
 
 ### The Problem
-In India’s construction, infrastructure, and logistics sectors, site supervisors receive physical paper delivery receipts (challans) while site foremen send quick voice notes in spoken Hindi/Hinglish on WhatsApp. Material fraud and payment leakage occur when vendors deliver partial quantities (e.g. 50 cement bags instead of 100) or damaged goods while leaving paper receipts stating full quantities.
+In construction, infrastructure, and logistics operations across India, site supervisors receive physical paper delivery receipts (challans) while site foremen record quick voice notes in spoken Hindi/Hinglish on WhatsApp. Material fraud and payment leakage occur when vendors deliver partial quantities (e.g. 50 cement bags instead of 100) or damaged goods while leaving physical receipts stating full quantities.
 
-### The Solution: Sakshi (साक्षी)
-**Sakshi** is an AI-powered, multimodal delivery reconciliation platform engineered specifically for Indian ground realities. Instead of allowing an LLM to blindly make financial payment approvals, Sakshi combines **Vision AI**, **Hindi/Hinglish Speech-to-Text (STT)**, a **Hindi Number Normalizer**, and a **Deterministic Financial Safety Engine** to verify physical receipts against site voice reports before money changes hands.
+### The Solution
+**Sakshi (साक्षी)** is an AI-powered, multimodal delivery reconciliation platform engineered for industrial supply chains. Instead of allowing generative AI to blindly make financial payment approvals, Sakshi combines **Vision AI**, **Hindi/Hinglish Speech-to-Text (STT)**, a **Hindi Spoken Number Normalizer**, and a **Deterministic Financial Safety Engine** to verify physical receipts against site voice reports before money changes hands.
 
 ```
        ┌─────────────────────────────────────────────────────────────┐
@@ -25,8 +24,8 @@ In India’s construction, infrastructure, and logistics sectors, site superviso
                                       ▼
        ┌─────────────────────────────────────────────────────────────┐
        │ 1. Multimodal AI Extraction                                 │
-       │    • Groq Qwen Vision OCR (Receipt claims)                  │
-       │    • Groq Whisper Turbo STT (Voice transcription)           │
+       │    • Groq Qwen Vision OCR (Receipt claim extraction)        │
+       │    • Groq Whisper Turbo STT (Voice note transcription)      │
        └──────────────────────────────┬──────────────────────────────┘
                                       │
                                       ▼
@@ -48,7 +47,7 @@ In India’s construction, infrastructure, and logistics sectors, site superviso
        ┌─────────────────────────────────────────────────────────────┐
        │ 4. Output & Audit Trail                                     │
        │    • Decision: RECOMMEND_PROCEED / HOLD_FOR_REVIEW          │
-       │    • Evidence Score (0-100) + Context-Aware "Ask Next"      │
+       │    • Evidence Quality Score (0-100) + Actionable Guidance   │
        │    • Native Multilingual TTS Audio Review (6 Languages)     │
        │    • Immutable PostgreSQL Audit Trail (/media/ storage)     │
        └──────────────────────────────┬──────────────────────────────┘
@@ -56,70 +55,82 @@ In India’s construction, infrastructure, and logistics sectors, site superviso
 
 ---
 
-## 🛠️ 2. Work Done & Individual Contributions
+## 🏗️ 2. Technical Architecture & Component Breakdown
 
-### Core Contributions
-- **Multimodal AI Pipeline Integration**: Built async FastAPI endpoints orchestrating Groq Qwen Vision (`qwen3.6-27b`) for document claim extraction and Groq Whisper (`whisper-large-v3-turbo`) for Hindi/Hinglish speech transcription.
-- **Hindi Spoken Number Normalizer (`app/hindi_normalizer.py`)**: Designed regex and dictionary parser to convert complex Indian spoken number phrases (e.g. *"do lakh athavan hazaar"*) into numeric values (`258000`) and precision tags (`approximate` vs `exact`).
-- **Deterministic Safety Policy Engine (`app/safety.py`)**: Implemented non-negotiable financial guardrails enforcing zero-hallucination payment holds (`HOLD_FOR_REVIEW`), 1.0% tolerance calculation, and evidence quality scoring (0-100).
-- **3-Tier Multi-Model Failover System (`app/main.py`)**: Built automatic failover architecture across **Groq Cloud API** ➔ **OpenRouter Free API** ➔ **Local Ollama Engine (`gpt-oss:120b-cloud`)**, satisfying the hackathon's mandatory *"Degrade Gracefully"* rule.
-- **Native Regional Language TTS Proxy (`/api/tts`)**: Created backend audio streaming proxy delivering native MP3 audio in Telugu, Hindi, Tamil, Kannada, Malayalam, Marathi, and English.
-- **User Auth & Full-Screen SPA (`app/static/`)**: Developed single-page web app with JWT (HS256) bearer authentication, bcrypt password hashing, login/signup routes, and history management.
+Sakshi is built as a **Cloud-Native Microservices Architecture** (also deployable as a high-performance unified service):
+
+### A. Frontend Single Page Application (`app/static/`)
+- **Technology**: Vanilla HTML5, CSS3, ES6 JavaScript.
+- **Authentication**: JWT (HS256) bearer token management with `localStorage` persistence.
+- **Components**: Dedicated full-screen Login, Signup, and Dashboard tab views (`Compare Evidence`, `Audit History`, `Evaluation Harness`).
+
+### B. API Gateway & Backend Engine (`app/main.py`)
+- **Technology**: FastAPI (Python 3.11), Uvicorn ASGI server.
+- **Endpoints**:
+  - `POST /api/auth/register` & `POST /api/auth/login` (Authentication)
+  - `POST /api/reconcile` (Multimodal evidence reconciliation)
+  - `GET /api/tts` (Native regional text-to-speech audio streaming)
+  - `GET /api/history/list` & `DELETE /api/history/delete/{id}` (Audit trail management)
+  - `GET /api/evaluate` (20-case automated test suite execution)
+
+### C. Multimodal AI Extraction Layer
+- **Speech-to-Text (STT)**: **Groq Whisper (`whisper-large-v3-turbo`)** for fast transcription of code-mixed Hindi, Hinglish, and Indian English speech.
+- **Vision OCR**: **Groq Qwen Vision (`qwen/qwen3.6-27b`)** for document reading of printed and handwritten Indian challans, Mathadi vouchers, and transport slips.
+- **Payload Optimization**: Automatic image resizing (`optimize_image_bytes`) using Pillow to compress camera uploads to max 1600x1600 resolution and JPEG quality 85, keeping base64 payloads under 500KB.
+
+### D. Hindi Spoken Number Normalizer (`app/hindi_normalizer.py`)
+- **Algorithm**: Regex-based dictionary parser converting Indian spoken number phrases into structured numeric data.
+- **Examples**:
+  - `"do lakh athavan hazaar"` ➔ `258000` (ensures `"athavan"` = 58, not 80).
+  - `"do lakh athavan hazaar do sau ikattis"` ➔ `258231`.
+  - `"pachaas hazaar"` ➔ `50000`.
+- **Precision Detection**: Detects approximation keywords (`lagbhag`, `aas-paas`, `around`, `approximately`, `करीब`, `लगभग`) to set `"precision": "approximate"` or `"precision": "exact"`.
+
+### E. Financial Safety Policy Engine (`app/safety.py`)
+- **Tolerance Policy**: Configurable constant `APPROX_AMOUNT_TOLERANCE_PERCENT = 1.0` (1.0%).
+- **4-State Amount Reconciliation**:
+  1. `MATCH`: Exact numeric match or difference <= 0.05%.
+  2. `MATCH_WITHIN_TOLERANCE`: Approximate voice amount with difference <= 1.0% policy limit (issues `RECOMMEND_PROCEED`).
+  3. `CONFLICT`: Difference > 1.0% or exact mismatch (issues `HOLD_FOR_REVIEW`).
+  4. `UNVERIFIED`: Amount missing or unstated.
+- **Evidence Quality Score**: Calculates a transparent 0-100 score based on item readability, quantity presence, transcript length, and evidence conflicts.
+
+### F. 3-Tier Multi-Model Failover System
+- **Tier 1 (Cloud Primary)**: Groq Cloud API (`qwen3.6-27b` + `whisper-large-v3-turbo`).
+- **Tier 2 (Cloud Secondary)**: OpenRouter Free Cloud API (`openrouter/auto`).
+- **Tier 3 (Local Laptop Fallback)**: Local Ollama Engine (`gpt-oss:120b-cloud` / `http://localhost:11434`).
+
+### G. Database & File Persistence
+- **Database**: SQLite for local development (`sakshi.db`), PostgreSQL 15 for production Docker Compose / Cloud deployment.
+- **Media Storage**:`/media/` directory storing uploaded receipt images (`.jpg`, `.webp`) and recorded audio files (`.wav`).
 
 ---
 
-## 👥 3. Team Roles & Responsibilities
+## 💡 3. Key Features & Engineering Decisions
+
+### Feature 1: Zero Financial Hallucination Guarantee
+Generative AI models extract facts from raw images and speech, but a **deterministic Python rule engine (`app/safety.py`)** makes the financial recommendation. If evidence is missing, conflicting, or unreadable, the system strictly holds payment (`HOLD_FOR_REVIEW`).
+
+### Feature 2: Native Regional Multilingual Voice Synthesis
+Added `/api/tts` proxy route to stream clean MP3 audio directly from native voice engines, bypassing browser CORS restrictions. Supports native audio playback for:
+- Telugu (`తెలుగు`)
+- Hindi (`हिन्दी`)
+- Tamil (`தமிழ்`)
+- Kannada (`ಕನ್ನಡ`)
+- Malayalam (`മലയാളം`)
+- Marathi (`मराठी`)
+- English
+
+### Feature 3: Automated 20-Case Evaluation Harness
+Includes a 20-case test suite (`eval/cases.json` & `eval/test_amount_cases.py`) verifying 100% decision accuracy and 0 unsafe payment approvals.
+
+---
+
+## 👥 4. Team Member Roles & Contributions
 
 | Team Member | Role | Key Contributions |
 | :--- | :--- | :--- |
 | **Team Member 1 (Lead)** | **Full-Stack AI & Safety Architect** | Groq Multimodal AI integration, Deterministic Safety Engine (`app/safety.py`), Hindi Number Normalizer (`app/hindi_normalizer.py`), and 3-Tier Failover System. |
 | **Team Member 2** | **Backend & Database Engineer** | FastAPI API Gateway, PostgreSQL ORM schemas, JWT authentication, `/media/` file persistence, and Docker Compose orchestration. |
 | **Team Member 3** | **Frontend & UI/UX Developer** | SPA dashboard interface, real-time verdict banners, multilingual audio review controls, history card rendering, and CSS styling. |
-| **Team Member 4** | **Evaluation & QA Engineer** | 20-case test suite (`eval/cases.json`), 5 amount normalization tests (`eval/test_amount_cases.py`), failure logging, and demo video preparation. |
-
----
-
-## 💡 4. Key Features & Technical Decisions
-
-### Feature 1: Zero Financial Hallucination Guarantee
-Generative AI models extract facts from raw images and audio, but **a deterministic Python rule engine (`app/safety.py`) makes the financial recommendation**. If evidence is missing, conflicting, or unreadable, the system strictly holds payment (`HOLD_FOR_REVIEW`).
-
-### Feature 2: Hindi/Hinglish Number Normalizer & 1.0% Tolerance
-Converts regional spoken words (*"athavan"* = 58, NOT 80!). For bill totals like ₹258,231.20 vs spoken ~₹258,000, the difference is ₹231.20 (0.09%). Since this is within the 1.0% configured tolerance policy, Sakshi issues `RECOMMEND_PROCEED` while preserving exact audit trails.
-
-### Feature 3: 3-Tier Multi-Model Failover (Hackathon Rule Compliance)
-Satisfies the mandatory *"Degrade Gracefully"* constraint (Page 2 of Hackathon Brief):
-1. **Tier 1 (Cloud Primary)**: Groq Cloud API
-2. **Tier 2 (Cloud Backup)**: OpenRouter Free Cloud API
-3. **Tier 3 (Local Laptop Backup)**: Local Ollama Engine (`gpt-oss:120b-cloud`)
-
-### Feature 4: Built-in 20-Case Automated Eval Harness
-Includes a 20-case test suite (`eval/cases.json` & `/api/evaluate`) verifying 100% decision accuracy and 0 unsafe payment approvals.
-
----
-
-## 📹 5. Demo Video Script & Submission Checklist
-
-### Demo Video Recording Outline (2 to 3 Minutes)
-
-1. **0:00 - 0:30 (Problem & Solution)**: Show physical paper receipt + WhatsApp voice note challenge at construction sites. Introduce Sakshi.
-2. **0:30 - 1:00 (Demo Case 1 - Perfect Match & Tolerance)**:
-   - Upload receipt `Challan-pdf-1-2048.webp`.
-   - Enter transcript: `"Total bill do lakh athavan hazaar ke aas-paas hai."`
-   - Show normalized amount `₹2,58,000`, 0.09% difference, and **`RECOMMEND_PROCEED`** banner.
-3. **1:00 - 1:30 (Demo Case 2 - Material Shortage & Damage)**:
-   - Enter transcript: `"10 cement bags rain me wet aur damaged ho gaye hain site par."`
-   - Show **`HOLD_FOR_REVIEW`** verdict, `LOW (55/100)` quality score, condition conflict, and "Ask Next" photo request.
-4. **1:30 - 2:00 (Multilingual Audio & Failover)**:
-   - Click **"Listen to review"** and select **`Telugu (తెలుగు)`** or **`Hindi (हिन्दी)`** to demonstrate native MP3 audio playback.
-   - Show terminal logs demonstrating 3-tier failover (`Groq ➔ OpenRouter ➔ Local Ollama`).
-5. **2:00 - 2:30 (Eval Harness & Conclusion)**:
-   - Run `.venv\Scripts\python.exe eval/test_amount_cases.py` in PowerShell showing **100% PASS** on all 20 cases.
-
----
-
-### 📦 Submission Drive Folder Checklist
-- [x] **GitHub Repository URL**: [https://github.com/Charanteja009/Vocallabs.git](https://github.com/Charanteja009/Vocallabs.git)
-- [x] **Documentation File**: `SUBMISSION_DOCUMENTATION.md` & `README.md`
-- [x] **Demo Video MP4**: 2-3 minute video recording following the script above
-- [x] **Architecture Diagram & Screenshots**: Included in documentation
+| **Team Member 4** | **Evaluation & QA Engineer** | 20-case test suite (`eval/cases.json`), 5 amount normalization tests (`eval/test_amount_cases.py`), and system verification. |
