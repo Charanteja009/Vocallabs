@@ -56,9 +56,21 @@ function render(data) {
   const rows = evidence.map(e => `<li><b>${esc(e.field)}${e.item ? ` — ${esc(e.item)}` : ''}</b><span>${esc(e.value)} · ${esc(e.source)}${e.timestamp ? ` · ${esc(e.timestamp)}` : ''} · ${esc(e.quality)}</span></li>`).join('');
   const quality = x.evidence_quality || { level: 'LOW', score: 0, factors: [] };
   const timing = data.observability?.timings_ms || {};
-  result.innerHTML = `<article class="verdict ${esc(x.decision)}"><div><p class="eyebrow">RECONCILIATION #${esc(data.id)}</p><h2>${esc(x.decision).replaceAll('_', ' ')}</h2><p>${esc(x.reasoning_summary)}</p><small>Final state enforced by: ${esc(x.decision_basis)}</small></div><strong>${esc(quality.level)}<small>Evidence Quality · ${esc(quality.score)}/100</small></strong></article>
-  <div class="results"><article class="card"><p class="eyebrow">DOCUMENT CLAIM</p><h3>${esc(data.document.supplier?.value)} · ${esc(data.document.date?.value)}</h3><ul>${items || '<li>No readable items</li>'}</ul></article><article class="card"><p class="eyebrow">VOICE CLAIM</p><blockquote>“${esc(data.transcript)}”</blockquote></article></div>
-  <article class="card conflicts"><p class="eyebrow">${conflicts.length ? 'CONFLICTS FOUND' : 'EVIDENCE ALIGNMENT'}</p>${conflicts.length ? conflicts.map(c => `<div class="conflict"><b>${esc(c.field)}</b><p>Challan: ${esc(c.document_claim)}<br>Voice note: ${esc(c.voice_claim)}</p><small>${esc(c.why)}</small></div>`).join('') : '<p>No material conflict was identified. Human review remains required before payment.</p>'}<div class="question"><b>Ask next</b><p>${esc(x.review_question)}</p></div></article>
+  const amtRec = x.amount_reconciliation;
+  let amtBlock = '';
+  if (amtRec && amtRec.status !== 'UNVERIFIED' && amtRec.voice_amount != null) {
+    const precText = amtRec.precision === 'approximate' ? 'Approximately ' : '';
+    const statusText = amtRec.status === 'MATCH_WITHIN_TOLERANCE' ? 'Within approximate tolerance' : amtRec.status === 'MATCH' ? 'Exact match' : 'Exceeds tolerance';
+    const origPhrase = amtRec.original_phrase ? `<br><small style="color:#666;">Original phrase: "${esc(amtRec.original_phrase)}"</small>` : '';
+    amtBlock = `<div style="margin-top:12px; padding:10px 12px; background:rgba(0,0,0,0.03); border-radius:6px; font-size:13px; line-height:1.5;">
+      <b>Voice Note Amount:</b> ${precText}₹${Number(amtRec.voice_amount).toLocaleString('en-IN')} INR ${origPhrase}<br>
+      <b>Difference:</b> ₹${Number(amtRec.difference || 0).toLocaleString('en-IN')} (${amtRec.difference_percent ?? 0}%) &nbsp;·&nbsp; <b>Status:</b> ${statusText}
+    </div>`;
+  }
+
+  result.innerHTML = `<article class="verdict ${esc(x.decision)}"><div><p class="eyebrow">RECONCILIATION #${esc(data.id)}</p><h2>${esc(x.decision).replaceAll('_', ' ')}</h2><p>${esc(x.reasoning_summary)}</p><small>Final state enforced by: ${esc(x.decision_basis)}</small></div><strong>${esc(quality.level)} <small>· Evidence Quality: ${esc(quality.score)}/100</small></strong></article>
+  <div class="results"><article class="card"><p class="eyebrow">DOCUMENT CLAIM</p><h3>${esc(data.document.supplier?.value)} · ${esc(data.document.date?.value)}</h3><ul>${items || '<li>No readable items</li>'}</ul></article><article class="card"><p class="eyebrow">VOICE CLAIM</p><blockquote>“${esc(data.transcript)}”</blockquote>${amtBlock}</article></div>
+  <article class="card conflicts"><p class="eyebrow">${conflicts.length ? 'CONFLICTS FOUND' : 'EVIDENCE ALIGNMENT'}</p>${conflicts.length ? conflicts.map(c => `<div class="conflict"><b>${esc(c.field)}</b><p>Challan: ${esc(c.document_claim)}<br>Voice note: ${esc(c.voice_claim)}</p><small>${esc(c.why)}</small></div>`).join('') : '<p>No material conflict was identified. Evidence aligns within configured policy tolerances.</p>'}<div class="question"><b>Ask next</b><p>${esc(x.review_question)}</p></div></article>
   <div class="results"><article class="card"><p class="eyebrow">EVIDENCE TRAIL</p><ul>${rows || '<li>No evidence trail available</li>'}</ul></article><article class="card"><p class="eyebrow">OBSERVABILITY</p><p>Vision: ${esc(timing.vision_ms ?? '—')} ms<br>Speech: ${esc(timing.transcription_ms ?? '—')} ms<br>Reconciliation: ${esc(timing.reconciliation_ms ?? '—')} ms<br>Total: ${esc(data.observability?.total_ms ?? '—')} ms</p><label class="voice-language">Voice language<select id="voice-language"><option value="hi-IN">Hindi / Hinglish</option><option value="te-IN">Telugu</option><option value="ml-IN">Malayalam</option><option value="kn-IN">Kannada</option><option value="en-IN">English</option></select></label><label class="voice-language">Voice<select id="voice-choice"></select></label><div id="voice-warning" style="color: #b73c2f; font-size: 12px; margin-top: -6px; margin-bottom: 12px; display: none; line-height: 1.4;"></div><label class="voice-language">Speaking style<select id="voice-rate"><option value="0.88">Calm and clear</option><option value="0.96">Natural</option><option value="1.05">Faster</option></select></label><button class="secondary" id="listen" type="button">Listen to review</button><button class="secondary" id="packet" type="button">Download review packet</button><div id="translation-box" style="margin-top: 15px; font-size: 13px; font-style: italic; color: #53645f; display: none; line-height: 1.4;"></div></article></div>`;
   document.querySelector('#packet').addEventListener('click', () => downloadPacket(data));
   document.querySelector('#listen').addEventListener('click', () => speakReview(data));
@@ -133,8 +145,8 @@ async function speakReview(data) {
       window.currentAudio.pause();
       window.currentAudio = null;
     }
-    const speakLang = isLatn ? 'en' : langPrefix;
-    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${speakLang}&client=tw-ob&q=${encodeURIComponent(message)}`;
+    const speakLang = langPrefix;
+    const ttsUrl = `/api/tts?lang=${encodeURIComponent(speakLang)}&text=${encodeURIComponent(message)}`;
     window.currentAudio = new Audio(ttsUrl);
     const rate = Number(document.querySelector('#voice-rate').value) || 1.0;
     window.currentAudio.playbackRate = rate;

@@ -9,11 +9,12 @@ import uuid
 from pathlib import Path
 from typing import Optional
 from urllib import error, request
+from urllib.parse import quote
 
 import bcrypt
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Header, Depends, UploadFile, status
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from groq import Groq
 from jose import JWTError, jwt
@@ -261,7 +262,41 @@ async def image_to_claim(image: UploadFile) -> dict:
     return parse_json(content(response))
 
 def assess_claims(claim: dict, transcript: str) -> dict:
-    prompt = f"""Compare two independent delivery evidence sources. Return JSON only:
+    prompt = f"""You are a multi-source delivery evidence reconciliation assistant.
+
+IMPORTANT: Hindi/Hinglish number normalization
+
+When extracting numeric values from Hindi or Hinglish speech, convert
+Hindi number words into their correct numeric values before comparison.
+
+Examples:
+- ek lakh = 100000
+- do lakh = 200000
+- teen lakh = 300000
+- pachaas hazaar = 50000
+- athavan hazaar = 58000
+- do lakh athavan hazaar = 258000
+- do lakh pachaas hazaar = 250000
+- do lakh saath hazaar = 260000
+
+"athavan" means 58, not 80.
+
+Preserve the original spoken phrase as well as the normalized number.
+
+If the speaker uses words such as:
+- lagbhag
+- aas-paas
+- around
+- approximately
+- करीब
+- लगभग
+
+mark the numeric claim as approximate rather than exact.
+
+Never infer or alter a number merely because it is close to another
+number in the document.
+
+Compare two independent delivery evidence sources. Return JSON only:
 {{"conflicts":[{{"field":string,"document_claim":string,"voice_claim":string,"why":string}}],"agreements":[string],"missing_information":[string]}}
 Document evidence: {json.dumps(claim)}
 Foreman Hindi/Hinglish transcript: {transcript!r}
@@ -347,6 +382,18 @@ def translate(req_body: TranslateRequest):
         return {"translated_text": translated}
     except Exception as exc:
         raise HTTPException(502, f"Translation failed: {str(exc)}")
+
+@app.get("/api/tts")
+def tts_proxy(text: str, lang: str = "hi"):
+    try:
+        clean_text = text.strip()[:500]
+        url = f"https://translate.google.com/translate_tts?ie=UTF-8&tl={lang}&client=tw-ob&q={quote(clean_text)}"
+        req = request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with request.urlopen(req, timeout=10) as resp:
+            audio_bytes = resp.read()
+        return Response(content=audio_bytes, media_type="audio/mpeg")
+    except Exception as exc:
+        raise HTTPException(502, f"TTS generation failed: {exc}")
 
 @app.post("/api/reconcile")
 async def reconcile(image: UploadFile = File(...), transcript: str = Form(""), audio: UploadFile | None = File(None)):
