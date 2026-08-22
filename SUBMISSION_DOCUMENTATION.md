@@ -1,8 +1,18 @@
 # 🏛️ SAKSHI (साक्षी) — Project Technical Documentation
 
 > **Project Name**: Sakshi (साक्षी) — Safe, Auditable Multimodal Delivery-Evidence Reconciliation  
-> **GitHub Repository**: [https://github.com/Charanteja009/Vocallabs.git](https://github.com/Charanteja009/Vocallabs.git)  
-> **System Status**: Production-Ready / Operational  
+> **🌐 Live Production URL**: [https://vocallabs-zhjk.onrender.com/](https://vocallabs-zhjk.onrender.com/)  
+> **🐙 GitHub Repository**: [https://github.com/Charanteja009/Vocallabs](https://github.com/Charanteja009/Vocallabs)  
+> **Backend Engine**: FastAPI (Python 3.11) | Uvicorn ASGI Server  
+> **Database Engine**: PostgreSQL 15 | SQLAlchemy ORM  
+
+---
+
+## 🌐 Quick Access Links
+
+- **Live App URL**: [https://vocallabs-zhjk.onrender.com/](https://vocallabs-zhjk.onrender.com/)
+- **GitHub Repository**: [https://github.com/Charanteja009/Vocallabs](https://github.com/Charanteja009/Vocallabs)
+- **20-Case Eval Endpoint**: [https://vocallabs-zhjk.onrender.com/api/evaluate](https://vocallabs-zhjk.onrender.com/api/evaluate)
 
 ---
 
@@ -47,7 +57,7 @@ In construction, infrastructure, and logistics operations across India, site sup
        ┌─────────────────────────────────────────────────────────────┐
        │ 4. Output & Audit Trail                                     │
        │    • Decision: RECOMMEND_PROCEED / HOLD_FOR_REVIEW          │
-       │    • Evidence Quality Score (0-100) + Actionable Guidance   │
+       │    • Evidence Score (0-100) + Actionable Guidance           │
        │    • Native Multilingual TTS Audio Review (6 Languages)     │
        │    • Immutable PostgreSQL Audit Trail (/media/ storage)     │
        └──────────────────────────────┬──────────────────────────────┘
@@ -102,7 +112,7 @@ Sakshi is built as a **Cloud-Native Microservices Architecture** (also deployabl
 
 ### G. Database & File Persistence
 - **Database**: SQLite for local development (`sakshi.db`), PostgreSQL 15 for production Docker Compose / Cloud deployment.
-- **Media Storage**:`/media/` directory storing uploaded receipt images (`.jpg`, `.webp`) and recorded audio files (`.wav`).
+- **Media Storage**: `/media/` directory storing uploaded receipt images (`.jpg`, `.webp`) and recorded audio files (`.wav`).
 
 ---
 
